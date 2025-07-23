@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Adivina el Número Secreto</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&family=Orbitron:wght@500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        font-family: 'Outfit', sans-serif;
+        color: #f1f5f9;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+      .glass {
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        backdrop-filter: blur(12px);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        padding: 2rem;
+        max-width: 600px;
+        width: 100%;
+      }
+      .glow:hover {
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+        transform: scale(1.05);
+        transition: 0.2s ease;
+      }
+      .number-tile {
+        background: #1e293b;
+        color: #f1f5f9;
+        border-radius: 10px;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem;
+        transition: all 0.2s;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .number-tile:hover {
+        background: #38bdf8;
+        color: #0f172a;
+        transform: scale(1.1);
+      }
+      .number-tile.selected {
+        background: #0ea5e9;
+        color: #fff;
+        transform: scale(1.15);
+      }
+      .chip-button {
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        font-weight: bold;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        border: 3px solid gold;
+        transition: transform 0.2s;
+      }
+      .chip-button:hover {
+        transform: scale(1.1);
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="startScreen" class="glass p-8 max-w-md w-full text-center">
+      <h1 class="text-3xl font-bold mb-6 text-cyan-300">🎮 Bienvenido al Juego</h1>
+      <p class="mb-4 text-lg">Selecciona tu dificultad para comenzar:</p>
+      <div class="flex flex-wrap justify-center gap-3">
+        <button class="px-4 py-2 rounded bg-cyan-600 hover:bg-cyan-400 glow" onclick="startGame('easy')">Fácil</button>
+        <button class="px-4 py-2 rounded bg-yellow-600 hover:bg-yellow-400 glow" onclick="startGame('medium')">Media</button>
+        <button class="px-4 py-2 rounded bg-red-600 hover:bg-red-400 glow" onclick="startGame('hard')">Difícil</button>
+        <button class="px-4 py-2 rounded bg-purple-700 hover:bg-purple-500 glow" onclick="startGame('legendary')">Legendaria</button>
+      </div>
+      <div id="store" class="mt-6">
+        <button onclick="claimDailyPoints()" class="mt-4 px-4 py-2 rounded bg-green-600 hover:bg-green-400 glow">Reclamar 100 puntos diarios</button>
+        <p id="claimMessage" class="mt-2 text-sm text-green-300"></p>
+      </div>
+    </div>
+
+    <div id="gameContainer" class="glass p-8 max-w-xl w-full text-center hidden">
+      <div class="flex justify-start mb-4">
+        <button onclick="volverAlMenu()" class="text-cyan-300 hover:text-white text-xl">⬅ Volver</button>
+      </div>
+      <h1 class="text-3xl font-bold mb-4 text-cyan-300">Adivina el Número Secreto</h1>
+      <p class="mb-2" id="difficultyDisplay">Dificultad: <span class="font-semibold">Fácil</span></p>
+      <p id="attemptsLeft">Intentos restantes: 5</p>
+      <p class="mt-2">Puntos: <span id="points">100</span></p>
+
+      <div class="mt-4">
+        <label class="block mb-1">Apuesta:</label>
+        <div class="flex justify-center gap-3 mb-4">
+          <button class="chip-button bg-blue-600" onclick="setBetPercentage(25)">25%</button>
+          <button class="chip-button bg-yellow-500" onclick="setBetPercentage(50)">50%</button>
+          <button class="chip-button bg-orange-500" onclick="setBetPercentage(75)">75%</button>
+          <button class="chip-button bg-red-600" onclick="setBetPercentage(100)">MAX</button>
+        </div>
+        <input type="number" id="betAmount" class="w-24 px-3 py-1 rounded text-black" min="1" />
+        <button id="confirmBetBtn" class="ml-2 px-4 py-1 rounded bg-green-600 hover:bg-green-400 glow" onclick="confirmBet()">Confirmar</button>
+        <p id="betConfirmation" class="mt-2 text-sm text-green-300"></p>
+      </div>
+
+      <div id="numberButtons" class="flex flex-wrap justify-center mt-6"></div>
+      <p class="mt-6 text-lg font-semibold text-lime-300" id="resultMessage"></p>
+      <button id="resetGameBtn" class="mt-4 hidden px-4 py-2 rounded bg-sky-700 hover:bg-sky-500 glow" onclick="initializeGame()">Reiniciar Juego</button>
+    </div>
+
+    <script>
+      const difficultyLevels = {
+        easy: { max: 20, multiplier: 1.5 },
+        medium: { max: 40, multiplier: 2 },
+        hard: { max: 70, multiplier: 3 },
+        legendary: { max: 100, multiplier: 0 }
+      };
+
+      let secretNumber = 0;
+      let remainingAttempts = 5;
+      let points = parseInt(localStorage.getItem('points')) || 100;
+      let currentDifficulty = 'easy';
+      let bet = 0;
+      let betConfirmed = false;
+
+      function volverAlMenu() {
+        document.getElementById('gameContainer').classList.add('hidden');
+        document.getElementById('startScreen').classList.remove('hidden');
+        document.getElementById('points').textContent = points;
+        checkPoints();
+      }
+
+      function startGame(level) {
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('gameContainer').classList.remove('hidden');
+        setDifficulty(level);
+      }
+
+      function initializeGame() {
+        const level = difficultyLevels[currentDifficulty];
+        secretNumber = Math.floor(Math.random() * level.max) + 1;
+        remainingAttempts = 5;
+        bet = 0;
+        betConfirmed = false;
+        document.getElementById('resultMessage').textContent = '';
+        document.getElementById('attemptsLeft').textContent = `Intentos restantes: ${remainingAttempts}`;
+        document.getElementById('difficultyDisplay').innerHTML = `Dificultad: <span class="font-semibold">${capitalize(currentDifficulty)}</span>`;
+        document.getElementById('resetGameBtn').classList.add('hidden');
+        document.getElementById('betAmount').value = '';
+        document.getElementById('betAmount').disabled = false;
+        document.getElementById('confirmBetBtn').disabled = false;
+        document.getElementById('betConfirmation').textContent = '';
+        crearBotonesNumericos(level.max);
+      }
+
+      function setDifficulty(level) {
+        currentDifficulty = level;
+        initializeGame();
+      }
+
+      function crearBotonesNumericos(max) {
+        const contenedor = document.getElementById('numberButtons');
+        contenedor.innerHTML = '';
+        for (let i = 1; i <= max; i++) {
+          const btn = document.createElement('div');
+          btn.textContent = i;
+          btn.className = 'number-tile';
+          btn.addEventListener('click', () => handleGuess(i, btn));
+          contenedor.appendChild(btn);
+        }
+      }
+
+      function handleGuess(numero, boton) {
+        if (remainingAttempts <= 0 || secretNumber === 0 || bet === 0 || !betConfirmed) {
+          alert("Primero debes hacer una apuesta válida y confirmarla para jugar.");
+          return;
+        }
+
+        remainingAttempts--;
+        document.getElementById('attemptsLeft').textContent = `Intentos restantes: ${remainingAttempts}`;
+        boton.classList.add('selected');
+
+        if (numero === secretNumber) {
+          const multiplier = difficultyLevels[currentDifficulty].multiplier;
+          const ganancia = Math.floor(bet * multiplier);
+          points += ganancia;
+          document.getElementById('resultMessage').textContent = `¡Correcto! Ganaste ${ganancia} puntos.`;
+        } else {
+          if (remainingAttempts === 0) {
+            points -= bet;
+            document.getElementById('resultMessage').textContent = `¡Perdiste! El número era ${secretNumber}. Perdiste ${bet} puntos.`;
+          } else {
+            const pista = numero < secretNumber ? 'mayor' : 'menor';
+            document.getElementById('resultMessage').textContent = `Incorrecto. El número secreto es ${pista} que ${numero}.`;
+            return;
+          }
+        }
+
+        document.getElementById('points').textContent = points;
+        document.getElementById('resetGameBtn').classList.remove('hidden');
+        localStorage.setItem('points', points);
+        checkPoints();
+      }
+
+      function checkPoints() {
+        if (points <= 0) {
+          alert("Te quedaste sin puntos. Ve a la tienda a reclamar tus puntos diarios.");
+        }
+      }
+
+      function confirmBet() {
+        const amount = parseInt(document.getElementById('betAmount').value);
+        if (!isNaN(amount) && amount > 0 && amount <= points) {
+          bet = amount;
+          betConfirmed = true;
+          document.getElementById('betAmount').disabled = true;
+          document.getElementById('confirmBetBtn').disabled = true;
+          document.getElementById('betConfirmation').textContent = `✅ Apuesta de ${bet} puntos confirmada.`;
+        } else {
+          alert('Apuesta inválida. Debe ser mayor que 0 y menor o igual a tus puntos.');
+        }
+      }
+
+      function setBetPercentage(percent) {
+        const calc = Math.floor(points * (percent / 100));
+        document.getElementById('betAmount').value = calc;
+      }
+
+      function capitalize(word) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }
+
+      function claimDailyPoints() {
+        const lastClaim = localStorage.getItem('lastClaim');
+        const now = Date.now();
+        if (!lastClaim || now - parseInt(lastClaim) >= 86400000) {
+          points += 100;
+          localStorage.setItem('points', points);
+          localStorage.setItem('lastClaim', now.toString());
+          document.getElementById('points').textContent = points;
+          document.getElementById('claimMessage').textContent = '✅ Has reclamado 100 puntos.';
+        } else {
+          const nextClaim = 86400000 - (now - parseInt(lastClaim));
+          const hours = Math.floor(nextClaim / 3600000);
+          const minutes = Math.floor((nextClaim % 3600000) / 60000);
+          const seconds = Math.floor((nextClaim % 60000) / 1000);
+          document.getElementById('claimMessage').textContent = `⏳ Ya reclamaste hoy. Vuelve en ${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+        }
+      }
+    </script>
+  </body>
+</html>
